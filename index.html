@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PEM Oxygen Management Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        :root{
+            --primary:#2db7d4;
+            --secondary:#1a8fb2;
+            --accent:#45c7e9;
+            --success:#2ecc71;
+            --danger:#ef5f5f;
+            --warning:#f6b26b;
+            --dark:#0b1724;
+            --darker:#06111b;
+            --light:#eef6fb;
+            --gray:#8ea7bb;
+            --card-bg:rgba(11,23,36,0.94);
+            --card-border:rgba(69,149,185,0.22);
+        }
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+
+        body{
+            font-family:'Inter',sans-serif;
+            background:radial-gradient(circle at 20% 10%, rgba(69,149,185,0.18), transparent 18%), radial-gradient(circle at 75% 20%, rgba(239,71,111,0.12), transparent 18%), linear-gradient(180deg, #08131f 0%, #06101b 100%);
+            color:var(--light);
+            min-height:100vh;
+            overflow-x:hidden;
+        }
+
+        .monospace{
+            font-family:'Roboto Mono',monospace;
+        }
+
+        .container{
+            max-width:1400px;
+            margin:0 auto;
+            padding:24px 20px 40px;
+        }
+
+        .header{
+            position:sticky;
+            top:0;
+            z-index:1000;
+            background:rgba(9,18,31,0.94);
+            border-bottom:1px solid rgba(69,149,185,0.22);
+            backdrop-filter:blur(18px);
+        }
+
+        .header::after{
+            content:'';
+            display:block;
+            height:1px;
+            margin-top:-1px;
+            background:linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+
+        .header-content{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:14px;
+            padding:14px 18px;
+        }
+
+        .logo{
+            display:flex;
+            align-items:center;
+            gap:10px;
+        }
+
+        .logo-icon{
+            width:28px;
+            height:28px;
+            fill:var(--accent);
+            filter:drop-shadow(0 0 10px rgba(69,149,185,0.3));
+        }
+
+        .logo h1{
+            font-size:1.35rem;
+            font-weight:700;
+            letter-spacing:-0.3px;
+            color:var(--light);
+        }
+
+        .status-indicator{
+            display:flex;
+            align-items:center;
+            gap:6px;
+            padding:6px 12px;
+            background:rgba(18,34,52,0.90);
+            border-radius:20px;
+            border:1px solid rgba(69,149,185,0.20);
+        }
+
+        .status-panel{
+            display:flex;
+            align-items:center;
+            gap:10px;
+            padding:8px 12px;
+            max-width:360px;
+            background:rgba(15,27,44,0.92);
+            border:1px solid rgba(69,149,185,0.20);
+            border-radius:20px;
+        }
+
+        .status-item{
+            display:flex;
+            align-items:center;
+            gap:6px;
+            color:var(--light);
+            font-size:0.92rem;
+            font-weight:600;
+            white-space:nowrap;
+        }
+
+        .status-item .icon-small{
+            width:18px;
+            height:18px;
+            fill:var(--light);
+        }
+
+        .status-item.battery{
+            color:var(--success);
+        }
+
+        .status-item.battery .battery-icon{
+            color:var(--success);
+        }
+
+        .status-item.battery .battery-fill{
+            transition:width 0.25s ease;
+        }
+
+        .status-dot{
+            width:10px;
+            height:10px;
+            border-radius:50%;
+            background:var(--danger);
+            box-shadow:0 0 10px rgba(239,71,111,0.35);
+        }
+
+        .status-dot.connected{
+            background:var(--success);
+            box-shadow:0 0 10px rgba(46,196,182,0.35);
+        }
+
+        .status-dot.connecting{
+            background:var(--warning);
+            box-shadow:0 0 10px rgba(240,165,0,0.35);
+        }
+
+        .icon{
+            width:20px;
+            height:20px;
+            fill:currentColor;
+            margin-right:8px;
+            vertical-align:middle;
+        }
+
+        .icon-small{width:16px;height:16px;}
+        .icon-large{width:24px;height:24px;}
+
+        .nav-tabs{
+            display:flex;
+            gap:8px;
+            background:rgba(255,255,255,0.04);
+            border-radius:16px;
+            padding:8px;
+            margin:28px 0;
+            border:1px solid var(--card-border);
+        }
+
+        .nav-tab{
+            flex:1;
+            padding:12px 18px;
+            text-align:center;
+            background:transparent;
+            border:none;
+            color:var(--gray);
+            font-size:0.96rem;
+            font-weight:700;
+            font-family:'Roboto Mono',monospace;
+            letter-spacing:0.55px;
+            cursor:pointer;
+            border-radius:14px;
+            transition:background 0.25s ease, color 0.25s ease, transform 0.25s ease;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:8px;
+        }
+        .nav-tab svg.icon{width:20px;height:20px;}
+
+        .nav-tab:hover{
+            background:rgba(255,255,255,0.12);
+            color:#fff;
+        }
+
+        .nav-tab.active{
+            background:linear-gradient(135deg, var(--success), var(--accent));
+            color:#fff;
+            box-shadow:0 12px 24px rgba(46,196,182,0.24);
+        }
+
+        .dashboard-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+            gap:20px;
+            margin-bottom:24px;
+        }
+
+        .card{
+            background:rgba(11,23,36,0.96);
+            border:1px solid rgba(69,149,185,0.18);
+            border-radius:18px;
+            padding:26px;
+            transition:transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card:hover{
+            transform:translateY(-3px);
+            box-shadow:0 18px 46px rgba(0,0,0,0.18);
+            border-color:rgba(69,149,185,0.30);
+            background:rgba(15,28,45,0.98);
+        }
+
+        .card-title{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:18px;
+            padding-bottom:12px;
+            border-bottom:1px solid var(--card-border);
+        }
+
+        .card-title h3{
+            font-size:1.15rem;
+            font-weight:700;
+            color:var(--accent);
+            display:flex;
+            align-items:center;
+            gap:8px;
+        }
+
+        .card-value{
+            font-size:2.4rem;
+            font-weight:700;
+            font-family:'Roboto Mono',monospace;
+            margin:14px 0;
+            color:var(--light);
+        }
+
+        .card-unit{
+            font-size:1rem;
+            color:var(--gray);
+            margin-left:6px;
+        }
+
+        .progress-container{margin:14px 0;}
+        .progress-label{display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.92rem;color:var(--gray);}
+        .progress-bar{height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;}
+        .progress-fill{height:100%;background:linear-gradient(90deg,var(--success),#16a085);border-radius:6px;transition:width 0.45s ease, background 0.45s ease;}
+        .gauge-card{
+            display:flex;
+            align-items:center;
+            gap:16px;
+            margin-top:18px;
+        }
+        .gauge-shell{
+            position:relative;
+            width:108px;
+            height:108px;
+        }
+        .gauge-ring{
+            width:100%;
+            height:100%;
+        }
+        .gauge-track{
+            fill:none;
+            stroke:rgba(255,255,255,0.08);
+            stroke-width:10;
+        }
+        .gauge-fill{
+            fill:none;
+            stroke:var(--success);
+            stroke-width:10;
+            stroke-linecap:round;
+            stroke-dasharray:314;
+            stroke-dashoffset:78;
+            transition:stroke 0.3s ease, stroke-dashoffset 0.3s ease;
+            transform:rotate(-90deg);
+            transform-origin:center;
+        }
+        .gauge-center{
+            position:absolute;
+            inset:0;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            color:var(--light);
+            font-size:0.95rem;
+            font-weight:700;
+        }
+        .gauge-details{display:flex;flex-direction:column;gap:8px;}
+        .gauge-details .progress-label{margin:0;font-size:0.92rem;color:var(--gray);}
+        .gauge-details .progress-status{font-size:1rem;color:var(--light);font-weight:700;}
+        .chart-container{position:relative;height:320px;margin-top:18px;}
+
+        .control-panel{
+            background:var(--card-bg);
+            border-radius:18px;
+            padding:26px;
+            margin-top:24px;
+        }
+
+        .control-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+            gap:22px;
+        }
+
+        .control-group{display:flex;flex-direction:column;gap:12px;}
+        .control-label{font-size:0.92rem;color:var(--gray);display:flex;align-items:center;gap:8px;}
+        .slider-container{display:flex;align-items:center;gap:14px;}
+
+        input[type="range"]{
+            flex:1;
+            height:6px;
+            background:rgba(255,255,255,0.08);
+            border-radius:4px;
+            outline:none;
+            -webkit-appearance:none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb{
+            -webkit-appearance:none;
+            width:18px;
+            height:18px;
+            background:var(--accent);
+            border-radius:50%;
+            cursor:pointer;
+            border:3px solid rgba(255,255,255,0.95);
+            box-shadow:0 2px 10px rgba(0,0,0,0.18);
+        }
+
+        .btn{
+            padding:12px 22px;
+            border:none;
+            border-radius:10px;
+            font-family:'Inter',sans-serif;
+            font-weight:700;
+            cursor:pointer;
+            transition:transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            text-transform:uppercase;
+            letter-spacing:0.5px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            gap:8px;
+        }
+
+        .btn-primary{background:var(--accent);color:#fff;}
+        .btn-primary:hover{background:var(--secondary);transform:translateY(-1px);box-shadow:0 10px 18px rgba(0,0,0,0.18);}
+        .btn-start{background:linear-gradient(135deg, #2ecc71, #1fa573);color:#fff;border:1px solid rgba(46,196,182,0.45);box-shadow:0 12px 24px rgba(46,196,182,0.2);}
+        .btn-start:hover{background:linear-gradient(135deg, #1fa573, #169359);transform:translateY(-1px);box-shadow:0 12px 26px rgba(46,196,182,0.28);}
+        .btn-secondary{background:rgba(101,163,186,0.12);color:#f8fbff;border:1px solid rgba(101,163,186,0.32);}
+        .btn-secondary:hover{background:rgba(101,163,186,0.22);}
+        .btn-danger{background:var(--danger);color:#fff;}
+        .btn-danger:hover{background:#d43f5e;transform:translateY(-1px);box-shadow:0 10px 18px rgba(0,0,0,0.16);}
+
+        .alert{padding:16px;border-radius:10px;margin:10px 0;display:flex;align-items:center;gap:10px;}
+        .alert-warning{background:rgba(240,165,0,0.12);border-left:4px solid var(--warning);}
+        .alert-danger{background:rgba(239,71,111,0.12);border-left:4px solid var(--danger);}
+        .alert-success{background:rgba(46,196,182,0.12);border-left:4px solid var(--success);}
+
+        .footer{
+            margin-top:40px;
+            border-top:1px solid var(--card-border);
+            color:var(--gray);
+            font-size:0.9rem;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            flex-wrap:wrap;
+            padding:22px 0 0;
+        }
+
+        .wide-card{grid-column:span 2;}
+        .section-heading{font-size:1.5rem;font-weight:700;color:var(--light);margin-bottom:20px;}
+        .panel-heading{font-size:1.25rem;font-weight:600;color:var(--accent);margin-bottom:20px;}
+        .section{margin-bottom:34px;}
+
+        @media (max-width:768px){
+            .header-content{flex-direction:column;gap:18px;text-align:center;}
+            .dashboard-grid{grid-template-columns:1fr;}
+            .nav-tabs{flex-direction:column;}
+            .btn{padding:10px 16px;font-size:0.9rem;}
+            .wide-card{grid-column:span 1;}
+        }
+    </style>
+</head>
+<body>
+    <svg style="display:none"><symbol id="icon-medical" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2H9v-2h2v-2h2v2h2v2h-2v2zm-1-9c.55 0 1 .45 1 1v2h2c.55 0 1 .45 1 1s-.45 1-1 1h-2v2c0 .55-.45 1-1 1s-1-.45-1-1v-2H8c-.55 0-1-.45-1-1s.45-1 1-1h2V8c0-.55.45-1 1-1z"/></symbol><symbol id="icon-controller" viewBox="0 0 24 24"><path d="M17 7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h10c2.76 0 5-2.24 5-5s-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/><circle cx="17" cy="12" r="1.5"/></symbol><symbol id="icon-electrolyzer" viewBox="0 0 24 24"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03V4c0-1.1-.9-2-2-2H10c-1.1 0-2 .9-2 2v3.97c-1.48.74-2.5 2.26-2.5 4.03 0 2.76 2.24 5 5 5s5-2.24 5-5zM12 19c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/><path d="M12 15c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></symbol><symbol id="icon-overview" viewBox="0 0 24 24"><path d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z"/></symbol><symbol id="icon-stack" viewBox="0 0 24 24"><path d="M6 4h12v3H6V4zm0 5h12v3H6V9zm0 5h12v3H6v-3zm0 5h12v3H6v-3z"/></symbol><symbol id="icon-signal" viewBox="0 0 24 24"><path d="M5 19h3v-7H5v7zm5 0h3v-4h-3v4zm5 0h3v-2h-3v2z"/></symbol><symbol id="icon-wifi" viewBox="0 0 24 24"><path d="M2.88 10.7a15.936 15.936 0 0 1 18.24 0 .996.996 0 1 1-1.24 1.56 13.937 13.937 0 0 0-15.76 0A.996.996 0 0 1 2.88 10.7z"/><path d="M5.48 13.3a11.957 11.957 0 0 1 13.04 0 .996.996 0 1 1-1.26 1.54 9.966 9.966 0 0 0-10.52 0 .996.996 0 1 1-1.26-1.54z"/><path d="M8.1 15.9a7.978 7.978 0 0 1 7.8 0 .996.996 0 1 1-1.14 1.64 5.974 5.974 0 0 0-5.52 0 .996.996 0 1 1-1.14-1.64z"/><path d="M12 20a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></symbol><symbol id="icon-clock" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 11.59V7h-2v6.59L16.59 17l1.41-1.41L13 13.59z"/></symbol><symbol id="icon-start" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol><symbol id="icon-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></symbol><symbol id="icon-reset" viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol><symbol id="icon-auto" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></symbol><symbol id="icon-manual" viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></symbol><symbol id="icon-warning" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></symbol><symbol id="icon-danger" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></symbol><symbol id="icon-success" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></symbol><symbol id="icon-production" viewBox="0 0 24 24"><path d="M13 2.05v3.03c3.39.49 6 3.39 6 6.92 0 .9-.18 1.75-.48 2.54l2.6 1.53c.56-1.24.88-2.62.88-4.07 0-5.18-3.95-9.45-9-9.95zM12 19c-3.87 0-7-3.13-7-7 0-3.53 2.61-6.43 6-6.92V2.05c-5.06.5-9 4.76-9 9.95 0 5.52 4.47 10 9.99 10 3.31 0 6.24-1.61 8.06-4.09l-2.6-1.53C16.17 17.98 14.21 19 12 19z"/></symbol><symbol id="icon-efficiency" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z"/></symbol><symbol id="icon-safety" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></symbol><symbol id="icon-water" viewBox="0 0 24 24"><path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8zm0 18c-3.35 0-6-2.57-6-6.2 0-2.34 1.95-5.44 6-9.14 4.05 3.7 6 6.79 6 9.14 0 3.63-2.65 6.2-6 6.2z"/><path d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></symbol><symbol id="icon-temperature" viewBox="0 0 24 24"><path d="M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-1v1h1c0 .55-.45 1-1 1s-1-.45-1-1V5z"/></symbol><symbol id="icon-battery" viewBox="0 0 24 24"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></symbol><symbol id="icon-power" viewBox="0 0 24 24"><path d="M16.01 7L16 3h-2v4h-4V3H8v4h-.01C7 6.99 6 7.99 6 8.99v5.49L9.5 18v3h5v-3l3.5-3.51v-5.5c0-1-1-2-1.99-1.99z"/></symbol><symbol id="icon-gas" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4" stroke="white" stroke-width="2"/></symbol><symbol id="icon-reserve" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/><path d="M12 8v4l3 3"/></symbol><symbol id="icon-connection" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol></svg>
+
+    <div class="header">
+        <div class="container header-content">
+            <div class="logo">
+                <svg class="logo-icon"><use href="#icon-medical"></use></svg>
+                <h1>PEM Oxygen Management Dashboard</h1>
+            </div>
+            <div class="status-panel">
+                <div class="status-item battery" id="batteryStatusItem">
+                    <svg class="icon-small battery-icon" viewBox="0 0 24 24">
+                        <rect x="3" y="7" width="14" height="10" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="1.6" />
+                        <rect class="battery-fill" x="4" y="8.2" width="0" height="7.6" rx="1.2" ry="1.2" fill="currentColor" />
+                        <rect x="18.5" y="10" width="1.8" height="4" rx="0.9" ry="0.9" fill="currentColor" />
+                    </svg>
+                    <span id="panelBattery">82%</span>
+                </div>
+                <div class="status-item"><svg class="icon-small"><use href="#icon-signal"></use></svg><span id="panelGsm">4G</span></div>
+                <div class="status-item"><svg class="icon-small"><use href="#icon-wifi"></use></svg><span id="panelWifi">Wi-Fi</span></div>
+                <div class="status-item"><svg class="icon-small"><use href="#icon-clock"></use></svg><span id="panelTime">--:--</span></div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+        </div>
+    </div>
+
+    <main class="container">
+        <div class="nav-tabs">
+            <button type="button" class="nav-tab active" onclick="switchTab('controller')">
+                <svg class="icon"><use href="#icon-overview"></use></svg>Controller
+            </button>
+            <button type="button" class="nav-tab" onclick="switchTab('electrolyzer')">
+                <svg class="icon"><use href="#icon-stack"></use></svg>Electrolyzer
+            </button>
+        </div>
+
+        <div id="controllerTab" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-title"><h3><svg class="icon"><use href="#icon-production"></use></svg>O₂ Production Rate</h3><span class="monospace">Real-time</span></div>
+                    <div class="card-value"><span id="productionValue">35.0</span><span class="card-unit">%</span></div>
+                    <div class="progress-container"><div class="progress-label"><span>Current</span><span id="productionTarget">Target: 35%</span></div><div class="progress-bar"><div class="progress-fill" id="productionBar" style="width:35%"></div></div></div>
+                </div>
+                <div class="card">
+                    <div class="card-title"><h3><svg class="icon"><use href="#icon-efficiency"></use></svg>System Efficiency</h3><span class="monospace">Overall</span></div>
+                    <div class="card-value"><span id="efficiencyValue">78.5</span><span class="card-unit">%</span></div>
+                    <div class="gauge-card">
+                        <div class="gauge-shell">
+                            <svg class="gauge-ring" viewBox="0 0 120 120">
+                                <circle class="gauge-track" cx="60" cy="60" r="50"></circle>
+                                <circle class="gauge-fill" id="efficiencyGauge" cx="60" cy="60" r="50"></circle>
+                            </svg>
+                            <div class="gauge-center"><span id="efficiencyGaugeLabel">78.5%</span></div>
+                        </div>
+                        <div class="gauge-details">
+                            <div class="progress-label">Performance</div>
+                            <div class="progress-status" id="efficiencyGaugeStatus">Good</div>
+                            <div class="progress-container"><div class="progress-bar"><div class="progress-fill" id="efficiencyBar" style="width:78.5%"></div></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title"><h3><svg class="icon"><use href="#icon-safety"></use></svg>Safety Margin</h3><span class="monospace">Critical</span></div>
+                    <div class="card-value"><span id="safetyValue">85.2</span><span class="card-unit">%</span></div>
+                    <div class="progress-container"><div class="progress-label"><span>Operating Range</span><span id="safetyStatus">Safe</span></div><div class="progress-bar"><div class="progress-fill" id="safetyBar" style="width:85.2%"></div></div></div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h3 class="panel-heading"><svg class="icon-large"><use href="#icon-controller"></use></svg>Control Panel</h3>
+                <div class="control-grid">
+                    <div class="control-group"><label class="control-label"><svg class="icon-small"><use href="#icon-production"></use></svg>Production Setpoint</label>
+                        <div class="slider-container"><input type="range" id="productionSlider" min="0" max="100" value="35" oninput="updateProductionSlider(this.value)"><span class="monospace" id="sliderValue">35%</span></div>
+                        <div style="display:flex;gap:10px;margin-top:10px"><button type="button" class="btn btn-primary" onclick="sendProductionSetpoint()"><svg class="icon-small"><use href="#icon-production"></use></svg>Set Production</button><button type="button" class="btn btn-secondary" onclick="sendCommand('AUTO')"><svg class="icon-small"><use href="#icon-auto"></use></svg>Auto Mode</button></div>
+                    </div>
+                    <div class="control-group"><label class="control-label"><svg class="icon-small"><use href="#icon-controller"></use></svg>System Control</label>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn btn-start" onclick="sendCommand('START')"><svg class="icon-small"><use href="#icon-start"></use></svg>Start</button><button type="button" class="btn btn-danger" onclick="sendCommand('STOP')"><svg class="icon-small"><use href="#icon-stop"></use></svg>Stop</button><button type="button" class="btn btn-secondary" onclick="sendCommand('RESET')"><svg class="icon-small"><use href="#icon-reset"></use></svg>Reset</button><button type="button" class="btn btn-secondary" onclick="sendCommand('MANUAL')"><svg class="icon-small"><use href="#icon-manual"></use></svg>Manual</button></div>
+                    </div>
+                    <div class="control-group"><label class="control-label"><svg class="icon-small"><use href="#icon-production"></use></svg>Economic Setpoint</label>
+                        <div class="slider-container"><input type="range" id="economicSlider" min="10" max="100" value="30" oninput="updateEconomicSlider(this.value)"><span class="monospace" id="economicValue">30%</span></div>
+                        <button type="button" class="btn btn-primary" onclick="sendEconomicSetpoint()"><svg class="icon-small"><use href="#icon-production"></use></svg>Set Economic Point</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="grid-column:span 2">
+                <div class="card-title"><h3><svg class="icon"><use href="#icon-efficiency"></use></svg>Performance Trends</h3><span class="monospace">Last 60 seconds</span></div>
+                <div class="chart-container"><canvas id="trendChart"></canvas></div>
+            </div>
+        </div>
+
+        <div id="electrolyzerTab" class="tab-content" style="display:none">
+            <div class="dashboard-grid">
+                <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-water"></use></svg>Water Level</h3><span class="monospace">Deionized H₂O</span></div><div class="card-value"><span id="waterValue">75.0</span><span class="card-unit">%</span></div><div class="progress-container"><div class="progress-label"><span>Tank Capacity</span><span id="waterStatus">Adequate</span></div><div class="progress-bar"><div class="progress-fill" id="waterBar" style="width:75%"></div></div></div></div>
+                <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-temperature"></use></svg>Stack Temperature</h3><span class="monospace">PEM Stack</span></div><div class="card-value"><span id="tempValue">42.5</span><span class="card-unit">°C</span></div><div class="progress-container"><div class="progress-label"><span>Operating Range</span><span id="tempStatus">Normal</span></div><div class="progress-bar"><div class="progress-fill" id="tempBar" style="width:42.5%"></div></div></div></div>
+                <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-safety"></use></svg>O₂ Purity</h3><span class="monospace">Medical Grade</span></div><div class="card-value"><span id="purityValue">99.7</span><span class="card-unit">%</span></div><div class="progress-container"><div class="progress-label"><span>Quality Standard</span><span id="purityStatus">≥99.5%</span></div><div class="progress-bar"><div class="progress-fill" id="purityBar" style="width:99.7%"></div></div></div></div>
+                <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-gas"></use></svg>Gas Production</h3><span class="monospace">Real-time</span></div>
+                    <div style="margin:20px 0"><div style="margin-bottom:15px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>Oxygen (O₂)</span><span class="monospace" id="oxygenValue">52.3%</span></div><div class="progress-bar"><div class="progress-fill" id="oxygenBar" style="width:52.3%"></div></div></div><div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>Hydrogen (H₂)</span><span class="monospace" id="hydrogenValue">47.7%</span></div><div class="progress-bar"><div class="progress-fill" id="hydrogenBar" style="width:47.7%"></div></div></div></div>
+                </div>
+                <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-reserve"></use></svg>O₂ Reserve</h3><span class="monospace">Storage Tank</span></div><div class="card-value"><span id="reserveValue">68.5</span><span class="card-unit">%</span></div><div class="progress-container"><div class="progress-label"><span>Tank Level</span><span id="reserveStatus">Adequate</span></div><div class="progress-bar"><div class="progress-fill" id="reserveBar" style="width:68.5%"></div></div></div></div>
+                <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-power"></use></svg>Power System</h3><span class="monospace">Energy Supply</span></div>
+                    <div style="margin:20px 0"><div style="margin-bottom:15px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>Battery Voltage</span><span class="monospace" id="batteryValue">12.6 V</span></div><div class="progress-bar"><div class="progress-fill" id="batteryBar" style="width:80%"></div></div></div><div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>Power Source</span><span class="monospace" id="powerSource">Grid</span></div></div></div>
+                </div>
+            </div>
+            <div class="card" style="grid-column:span 2">
+                <div class="card-title"><h3><svg class="icon"><use href="#icon-connection"></use></svg>System Status</h3><span class="monospace">Comprehensive Overview</span></div>
+                <div id="systemAlerts">
+                    <div class="alert alert-success"><svg class="icon"><use href="#icon-success"></use></svg><span>All systems operating normally</span></div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-top:20px">
+                    <div><h4 style="color:var(--gray);margin-bottom:10px;display:flex;align-items:center;gap:6px"><svg class="icon-small"><use href="#icon-controller"></use></svg>Controller</h4><div class="monospace" id="controllerStatus">SAFETY-MPC</div></div>
+                    <div><h4 style="color:var(--gray);margin-bottom:10px;display:flex;align-items:center;gap:6px"><svg class="icon-small"><use href="#icon-auto"></use></svg>Mode</h4><div class="monospace" id="systemMode">AUTO</div></div>
+                    <div><h4 style="color:var(--gray);margin-bottom:10px;display:flex;align-items:center;gap:6px"><svg class="icon-small"><use href="#icon-warning"></use></svg>Violations</h4><div class="monospace" id="safetyViolations">0</div></div>
+                    <div><h4 style="color:var(--gray);margin-bottom:10px;display:flex;align-items:center;gap:6px"><svg class="icon-small"><use href="#icon-danger"></use></svg>Protocol</h4><div class="monospace" id="emergencyProtocol">Inactive</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <svg class="icon-small"><use href="#icon-medical"></use></svg>
+            <p>PEM Medical Oxygen System Dashboard | Real-time monitoring and control</p>
+            <p class="monospace" style="margin-top:10px;font-size:0.8rem" id="lastUpdate">Last update: --</p>
+        </div>
+    </main>
+
+    <script>
+        const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+        const TOPICS = { ARDUINO_DATA: 'pem/arduino/data', WEB_CONTROL: 'pem/web/control' };
+        let mqttClient = null, trendChart = null, lastArduinoDataTime = 0, arduinoConnected = false;
+        let dataHistory = { time: [], production: [], efficiency: [], safetyMargin: [] };
+
+        // Default static values
+        const DEFAULT_VALUES = {
+            production: 35.0,
+            efficiency: 78.5,
+            safetyMargin: 85.2,
+            water: 75.0,
+            temperature: 42.5,
+            purity: 99.7,
+            oxygen: 52.3,
+            hydrogen: 47.7,
+            reserve: 68.5,
+            battery: 12.6,
+            safetySetpoint: 35,
+            controllerType: 'SAFETY-MPC',
+            systemMode: 'AUTO',
+            safetyViolations: 0,
+            emergencyProtocol: false,
+            powerSource: 'Grid'
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            connectMQTT();
+            updatePanelTime();
+            updateBatteryIcon(parseFloat(document.getElementById('panelBattery').textContent) || 0);
+            setInterval(updatePanelTime, 1000);
+            setInterval(checkArduinoConnection, 5000);
+        });
+
+        function connectMQTT() {
+            updateStatus('disconnected', 'Connecting...');
+            mqttClient = mqtt.connect(MQTT_BROKER, {
+                clientId: 'pem-web-' + Math.random().toString(16).substr(2, 8),
+                clean: true, connectTimeout: 4000, reconnectPeriod: 1000
+            });
+
+            mqttClient.on('connect', function() {
+                updateStatus('mqtt-only', 'Connected to MQTT');
+                mqttClient.subscribe(TOPICS.ARDUINO_DATA);
+            });
+
+            mqttClient.on('message', function(topic, message) {
+                if (topic === TOPICS.ARDUINO_DATA) {
+                    lastArduinoDataTime = Date.now();
+                    if (!arduinoConnected) {
+                        arduinoConnected = true;
+                        updateStatus('connected', 'Connected to Arduino');
+                    }
+                    processArduinoData(message.toString());
+                }
+            });
+
+            mqttClient.on('error', function() { updateStatus('disconnected', 'Connection failed'); });
+            mqttClient.on('close', function() { updateStatus('disconnected', 'Disconnected'); });
+            mqttClient.on('offline', function() { updateStatus('disconnected', 'Offline'); });
+        }
+
+        function checkArduinoConnection() {
+            if (arduinoConnected && Date.now() - lastArduinoDataTime > 10000) {
+                arduinoConnected = false;
+                updateStatus('mqtt-only', 'Connected to MQTT (Arduino offline)');
+                // Reset to default static values when Arduino disconnects
+                resetToDefaultValues();
+            }
+        }
+
+        function resetToDefaultValues() {
+            updateDashboard(DEFAULT_VALUES);
+            updateLastUpdate();
+        }
+
+        function updateStatus(status, message) {
+            const dot = document.getElementById('statusDot'), text = document.getElementById('statusText');
+            dot.className = 'status-dot'; text.textContent = message;
+            if (status === 'connected') { dot.className = 'status-dot connected'; text.style.color = '#06d6a0'; }
+            else if (status === 'mqtt-only') { dot.className = 'status-dot connecting'; text.style.color = '#ffd166'; }
+            else { text.style.color = '#ef476f'; }
+        }
+
+        function processArduinoData(message) {
+            try { 
+                const data = JSON.parse(message);
+                updateDashboard(data); 
+                updateTrendChart(data);
+                updateLastUpdate(); 
+            } catch(err) { console.error('Error:', err); }
+        }
+
+        function updateDashboard(data) {
+            if (!data) return;
+            updateValue('productionValue', data.production, '%'); updateBar('productionBar', data.production);
+            updateValue('efficiencyValue', data.efficiency, '%'); updateBar('efficiencyBar', data.efficiency);
+            updateEfficiencyGauge(data.efficiency);
+            updateValue('safetyValue', data.safetyMargin, '%'); updateBar('safetyBar', data.safetyMargin);
+            updateValue('waterValue', data.water, '%'); updateBar('waterBar', data.water);
+            updateValue('tempValue', data.temperature, '°C'); updateBar('tempBar', data.temperature);
+            updateValue('purityValue', data.purity, '%'); updateBar('purityBar', data.purity);
+            updateValue('oxygenValue', data.oxygen, '%'); updateBar('oxygenBar', data.oxygen);
+            updateValue('hydrogenValue', data.hydrogen, '%'); updateBar('hydrogenBar', data.hydrogen);
+            updateValue('reserveValue', data.reserve, '%'); updateBar('reserveBar', data.reserve);
+            if (data.battery) { updateValue('batteryValue', data.battery, 'V'); updateBar('batteryBar', ((data.battery-11)/2)*100); }
+            if (data.batteryPercent !== undefined) {
+                updateValue('panelBattery', data.batteryPercent, '%');
+                updateBatteryIcon(data.batteryPercent);
+            } else {
+                updateBatteryIcon(parseFloat(document.getElementById('panelBattery').textContent) || 0);
+            }
+            if (data.safetySetpoint) document.getElementById('productionTarget').textContent = `Target: ${data.safetySetpoint.toFixed(1)}%`;
+            document.getElementById('powerSource').textContent = data.powerSource || 'Grid';
+            document.getElementById('controllerStatus').textContent = data.controllerType || '--';
+            document.getElementById('systemMode').textContent = data.systemMode || '--';
+        }
+
+        function updateValue(id, val, unit) { 
+            const el = document.getElementById(id); 
+            if (el && val !== undefined) el.textContent = typeof val === 'number' ? val.toFixed(1) + unit : val; 
+        }
+        
+        function updateBar(id, val) { 
+            const el = document.getElementById(id); 
+            if (el) {
+                const pct = Math.min(100, Math.max(0, val));
+                el.style.width = pct + '%'; 
+                const color = pct >= 95 ? {start: 'var(--success)', end: '#16a085'} : valueToColor(pct);
+                el.style.background = `linear-gradient(90deg, ${color.start}, ${color.end})`;
+            }
+        }
+
+        function updateBatteryIcon(level) {
+            const pct = Math.min(100, Math.max(0, level));
+            const fillRect = document.querySelector('.battery-fill');
+            if (fillRect) {
+                const maxWidth = 12.5;
+                fillRect.setAttribute('width', (maxWidth * pct / 100).toFixed(2));
+            }
+        }
+
+        function updateEfficiencyGauge(value) {
+            const pct = Math.min(100, Math.max(0, value || 0));
+            const gauge = document.getElementById('efficiencyGauge');
+            const label = document.getElementById('efficiencyGaugeLabel');
+            const status = document.getElementById('efficiencyGaugeStatus');
+            if (gauge) {
+                const radius = 50;
+                const circumference = 2 * Math.PI * radius;
+                gauge.style.strokeDasharray = circumference;
+                gauge.style.strokeDashoffset = circumference - (pct / 100) * circumference;
+                gauge.style.stroke = 'var(--success)';
+            }
+            if (label) label.textContent = pct.toFixed(1) + '%';
+            if (status) {
+                status.textContent = pct >= 85 ? 'Excellent' : pct >= 70 ? 'Good' : pct >= 50 ? 'Fair' : 'Needs attention';
+                status.style.color = pct >= 70 ? '#b7f2d0' : '#ffd166';
+            }
+        }
+
+        function valueToColor(value) {
+            const hue = Math.round((value * 120) / 100);
+            const start = `hsl(${hue}, 85%, 55%)`;
+            const end = `hsl(${hue}, 85%, 70%)`;
+            const mid = `hsl(${hue}, 85%, 60%)`;
+            return { start, end, mid };
+        }
+
+        function updateTrendChart(data) {
+            const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+            
+            if (arduinoConnected && data) {
+                // Add real Arduino data to chart
+                dataHistory.time.push(now);
+                dataHistory.production.push(data.production || 0);
+                dataHistory.efficiency.push(data.efficiency || 0);
+                dataHistory.safetyMargin.push(data.safetyMargin || 0);
+            } else {
+                // Add static default values to chart
+                dataHistory.time.push(now);
+                dataHistory.production.push(DEFAULT_VALUES.production);
+                dataHistory.efficiency.push(DEFAULT_VALUES.efficiency);
+                dataHistory.safetyMargin.push(DEFAULT_VALUES.safetyMargin);
+            }
+            
+            // Keep only last 20 points
+            if (dataHistory.time.length > 20) {
+                dataHistory.time.shift();
+                dataHistory.production.shift();
+                dataHistory.efficiency.shift();
+                dataHistory.safetyMargin.shift();
+            }
+            
+            // Update chart
+            if (trendChart) {
+                trendChart.data.labels = dataHistory.time;
+                trendChart.data.datasets[0].data = dataHistory.production;
+                trendChart.data.datasets[1].data = dataHistory.efficiency;
+                trendChart.data.datasets[2].data = dataHistory.safetyMargin;
+                trendChart.update('none');
+            }
+        }
+
+        function updateLastUpdate() {
+            if (arduinoConnected) {
+                document.getElementById('lastUpdate').textContent = 'Last update: ' + new Date().toLocaleTimeString('en-US', { 
+                    hour12: false, 
+                    hour:'2-digit', 
+                    minute:'2-digit', 
+                    second:'2-digit' 
+                });
+            }
+        }
+
+        function updatePanelTime() {
+            const now = new Date();
+            document.getElementById('panelTime').textContent = now.toLocaleTimeString('en-US', { hour12: false, hour:'2-digit', minute:'2-digit' });
+        }
+
+        function sendCommand(cmd) { 
+            if (!arduinoConnected) alert('Arduino not connected'); 
+            else mqttClient.publish(TOPICS.WEB_CONTROL, JSON.stringify({command:cmd,timestamp:new Date().toISOString()})); 
+        }
+        
+        function sendProductionSetpoint() { 
+            if (!arduinoConnected) alert('Arduino not connected'); 
+            else mqttClient.publish(TOPICS.WEB_CONTROL, JSON.stringify({manualProduction:parseFloat(document.getElementById('productionSlider').value)})); 
+        }
+        
+        function sendEconomicSetpoint() { 
+            if (!arduinoConnected) alert('Arduino not connected'); 
+            else mqttClient.publish(TOPICS.WEB_CONTROL, JSON.stringify({economicSetpoint:parseFloat(document.getElementById('economicSlider').value)})); 
+        }
+        
+        function updateProductionSlider(v) { document.getElementById('sliderValue').textContent = v + '%'; }
+        function updateEconomicSlider(v) { document.getElementById('economicValue').textContent = v + '%'; }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('controllerTab').style.display = 'none';
+            document.getElementById('electrolyzerTab').style.display = 'none';
+            document.getElementById(tab + 'Tab').style.display = 'block';
+        }
+
+        function initializeCharts() {
+            // Initialize chart with static default values
+            for (let i = 0; i < 20; i++) {
+                const time = new Date(Date.now() - (19 - i) * 3000).toLocaleTimeString('en-US', { hour12: false });
+                dataHistory.time.push(time);
+                dataHistory.production.push(DEFAULT_VALUES.production + (Math.random() * 4 - 2));
+                dataHistory.efficiency.push(DEFAULT_VALUES.efficiency + (Math.random() * 2 - 1));
+                dataHistory.safetyMargin.push(DEFAULT_VALUES.safetyMargin + (Math.random() * 3 - 1.5));
+            }
+            
+            trendChart = new Chart(document.getElementById('trendChart').getContext('2d'), {
+                type: 'line', 
+                data: { 
+                    labels: dataHistory.time, 
+                    datasets: [
+                        { 
+                            label: 'Production (%)', 
+                            data: dataHistory.production, 
+                            borderColor: '#00b4d8', 
+                            backgroundColor: 'rgba(0,180,216,0.1)', 
+                            borderWidth: 2, 
+                            fill: true, 
+                            tension: 0.4 
+                        },
+                        { 
+                            label: 'Efficiency (%)', 
+                            data: dataHistory.efficiency, 
+                            borderColor: '#06d6a0', 
+                            backgroundColor: 'rgba(6,214,160,0.1)', 
+                            borderWidth: 2, 
+                            fill: true, 
+                            tension: 0.4 
+                        },
+                        { 
+                            label: 'Safety Margin (%)', 
+                            data: dataHistory.safetyMargin, 
+                            borderColor: '#ef476f', 
+                            backgroundColor: 'rgba(239,71,111,0.1)', 
+                            borderWidth: 2, 
+                            fill: true, 
+                            tension: 0.4 
+                        }
+                    ]
+                }, 
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    animation: { duration: 0 }, 
+                    plugins: { 
+                        legend: { 
+                            labels: { 
+                                color: '#e0e1dd', 
+                                font: { family: 'Roboto Mono' } 
+                            } 
+                        } 
+                    }, 
+                    scales: { 
+                        x: { 
+                            grid: { color: 'rgba(255,255,255,0.1)' }, 
+                            ticks: { 
+                                color: '#e0e1dd', 
+                                font: { family: 'Roboto Mono', size: 10 } 
+                            } 
+                        }, 
+                        y: { 
+                            min: 0, 
+                            max: 100, 
+                            grid: { color: 'rgba(255,255,255,0.1)' }, 
+                            ticks: { 
+                                color: '#e0e1dd', 
+                                font: { family: 'Roboto Mono', size: 10 } 
+                            } 
+                        } 
+                    } 
+                }
+            });
+        }
+    </script>
+</body>
+</html>
