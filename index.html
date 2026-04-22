@@ -584,10 +584,11 @@
             mqttClient.on('connect', function() {
                 updateStatus('mqtt-only', 'Connected to MQTT');
                 mqttClient.subscribe(TOPICS.ARDUINO_DATA);
+                mqttClient.subscribe('arduino/sensors');
             });
 
             mqttClient.on('message', function(topic, message) {
-                if (topic === TOPICS.ARDUINO_DATA) {
+                if (topic === TOPICS.ARDUINO_DATA || topic === 'arduino/sensors') {
                     lastArduinoDataTime = Date.now();
                     if (!arduinoConnected) {
                         arduinoConnected = true;
@@ -635,27 +636,43 @@
 
         function updateDashboard(data) {
             if (!data) return;
-            updateValue('productionValue', data.production, '%'); updateBar('productionBar', data.production);
-            updateValue('efficiencyValue', data.efficiency, '%'); updateBar('efficiencyBar', data.efficiency);
-            updateEfficiencyGauge(data.efficiency);
-            updateValue('safetyValue', data.safetyMargin, '%'); updateBar('safetyBar', data.safetyMargin);
-            updateValue('waterValue', data.water, '%'); updateBar('waterBar', data.water);
-            updateValue('tempValue', data.temperature, '°C'); updateBar('tempBar', data.temperature);
-            updateValue('purityValue', data.purity, '%'); updateBar('purityBar', data.purity);
-            updateValue('oxygenValue', data.oxygen, '%'); updateBar('oxygenBar', data.oxygen);
-            updateValue('hydrogenValue', data.hydrogen, '%'); updateBar('hydrogenBar', data.hydrogen);
-            updateValue('reserveValue', data.reserve, '%'); updateBar('reserveBar', data.reserve);
-            if (data.battery) { updateValue('batteryValue', data.battery, 'V'); updateBar('batteryBar', ((data.battery-11)/2)*100); }
-            if (data.batteryPercent !== undefined) {
-                updateValue('panelBattery', data.batteryPercent, '%');
-                updateBatteryIcon(data.batteryPercent);
+            const production = data.production ?? data.prodRateSet ?? data.prodRate ?? data.safetySetpoint ?? 0;
+            const efficiency = data.efficiency ?? 0;
+            const safetyMargin = data.safetyMargin ?? data.safety ?? 0;
+            const water = data.water ?? data.water_tank_l ?? 0;
+            const temperature = data.temperature ?? 0;
+            const purity = data.purity ?? data.o2Purity ?? 0;
+            const oxygen = data.oxygen ?? ((data.o2ProductionRate || data.h2ProductionRate) ? (data.o2ProductionRate / ((data.o2ProductionRate || 0) + (data.h2ProductionRate || 0))) * 100 : 0);
+            const hydrogen = data.hydrogen ?? (100 - oxygen);
+            const reserve = data.reserve ?? water;
+            const batteryVoltage = data.battery ?? 0;
+            const batteryPercent = data.batteryPercent !== undefined ? data.batteryPercent : (batteryVoltage ? Math.round(((batteryVoltage - 11) / 2) * 100) : undefined);
+            const powerSource = data.powerSource ?? data.power_source ?? 'Grid';
+            const systemMode = data.systemMode ?? data.mode ?? '--';
+            const controllerType = data.controllerType ?? systemMode ?? '--';
+            const safetySetpoint = data.safetySetpoint ?? production;
+
+            updateValue('productionValue', production, '%'); updateBar('productionBar', production);
+            updateValue('efficiencyValue', efficiency, '%'); updateBar('efficiencyBar', efficiency);
+            updateEfficiencyGauge(efficiency);
+            updateValue('safetyValue', safetyMargin, '%'); updateBar('safetyBar', safetyMargin);
+            updateValue('waterValue', water, '%'); updateBar('waterBar', water);
+            updateValue('tempValue', temperature, '°C'); updateBar('tempBar', temperature);
+            updateValue('purityValue', purity, '%'); updateBar('purityBar', purity);
+            updateValue('oxygenValue', oxygen, '%'); updateBar('oxygenBar', oxygen);
+            updateValue('hydrogenValue', hydrogen, '%'); updateBar('hydrogenBar', hydrogen);
+            updateValue('reserveValue', reserve, '%'); updateBar('reserveBar', reserve);
+            if (batteryVoltage) { updateValue('batteryValue', batteryVoltage, 'V'); updateBar('batteryBar', ((batteryVoltage - 11) / 2) * 100); }
+            if (batteryPercent !== undefined) {
+                updateValue('panelBattery', batteryPercent, '%');
+                updateBatteryIcon(batteryPercent);
             } else {
                 updateBatteryIcon(parseFloat(document.getElementById('panelBattery').textContent) || 0);
             }
-            if (data.safetySetpoint) document.getElementById('productionTarget').textContent = `Target: ${data.safetySetpoint.toFixed(1)}%`;
-            document.getElementById('powerSource').textContent = data.powerSource || 'Grid';
-            document.getElementById('controllerStatus').textContent = data.controllerType || '--';
-            document.getElementById('systemMode').textContent = data.systemMode || '--';
+            document.getElementById('productionTarget').textContent = `Target: ${safetySetpoint.toFixed(1)}%`;
+            document.getElementById('powerSource').textContent = powerSource;
+            document.getElementById('controllerStatus').textContent = controllerType;
+            document.getElementById('systemMode').textContent = systemMode;
         }
 
         function updateValue(id, val, unit) { 
