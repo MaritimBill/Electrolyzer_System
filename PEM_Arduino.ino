@@ -1159,9 +1159,14 @@ void updateSystemStateOnHMI() {
   setNumber("j3", (int)round(h2Percent));  // H2 gauge (percentage)
   setNumber("j2", (int)round(o2Percent));  // O2 gauge (percentage)
   
+
   // Temperature gauge
-  setNumber("j1", (int)round(cellTemperature));
-  
+setNumber("j1", (int)round(cellTemperature));
+// Update the numeric temperature text
+char tempText[10];
+snprintf(tempText, sizeof(tempText), "%.1fC", cellTemperature);
+setText("t4", tempText);
+
   // Water level gauge
   setNumber("j0", (int)round(water_tank));
   
