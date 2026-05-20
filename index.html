@@ -427,9 +427,9 @@
                         <rect class="battery-fill" x="4" y="8.2" width="0" height="7.6" rx="1.2" ry="1.2" fill="currentColor" />
                         <rect x="18.5" y="10" width="1.8" height="4" rx="0.9" ry="0.9" fill="currentColor" />
                     </svg>
-                    <span id="panelBattery">82%</span>
+                    <span id="panelBattery">--%</span>
                 </div>
-                <div class="status-item"><svg class="icon-small"><use href="#icon-signal"></use></svg><span id="panelGsm">4G</span></div>
+                <div class="status-item"><svg class="icon-small"><use href="#icon-signal"></use></svg><span id="panelGsm">--</span></div>
                 <div class="status-item"><svg class="icon-small"><use href="#icon-wifi"></use></svg><span id="panelWifi">Wi-Fi</span></div>
                 <div class="status-item"><svg class="icon-small"><use href="#icon-clock"></use></svg><span id="panelTime">--:--</span></div>
             </div>
@@ -486,11 +486,17 @@
                 <h3 class="panel-heading"><svg class="icon-large"><use href="#icon-controller"></use></svg>Control Panel</h3>
                 <div class="control-grid">
                     <div class="control-group"><label class="control-label"><svg class="icon-small"><use href="#icon-production"></use></svg>Production Setpoint</label>
-                        <div class="slider-container"><input type="range" id="productionSlider" min="0" max="100" value="35" oninput="updateProductionSlider(this.value)"><span class="monospace" id="sliderValue">35%</span></div>
+                        <div class="slider-container"><input type="range" id="productionSlider" min="0" max="100" value="35" oninput="updateProductionSlider(this.value)" onmouseup="sendProductionSetpoint()"><span class="monospace" id="sliderValue">35%</span></div>
                         <div style="display:flex;gap:10px;margin-top:10px"><button type="button" class="btn btn-primary" onclick="sendProductionSetpoint()"><svg class="icon-small"><use href="#icon-production"></use></svg>Set Production</button><button type="button" class="btn btn-secondary" onclick="sendCommand('AUTO')"><svg class="icon-small"><use href="#icon-auto"></use></svg>Auto Mode</button></div>
                     </div>
                     <div class="control-group"><label class="control-label"><svg class="icon-small"><use href="#icon-controller"></use></svg>System Control</label>
-                        <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn btn-start" onclick="sendCommand('START')"><svg class="icon-small"><use href="#icon-start"></use></svg>Start</button><button type="button" class="btn btn-danger" onclick="sendCommand('STOP')"><svg class="icon-small"><use href="#icon-stop"></use></svg>Stop</button><button type="button" class="btn btn-secondary" onclick="sendCommand('RESET')"><svg class="icon-small"><use href="#icon-reset"></use></svg>Reset</button><button type="button" class="btn btn-secondary" onclick="sendCommand('MANUAL')"><svg class="icon-small"><use href="#icon-manual"></use></svg>Manual</button></div>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button type="button" class="btn btn-start" onclick="sendCommand('START')"><svg class="icon-small"><use href="#icon-start"></use></svg>Start</button>
+                            <button type="button" class="btn btn-danger" onclick="sendCommand('STOP')"><svg class="icon-small"><use href="#icon-stop"></use></svg>Stop</button>
+                            <button type="button" class="btn btn-secondary" onclick="sendCommand('AUTO')"><svg class="icon-small"><use href="#icon-auto"></use></svg>Auto Mode</button>
+                            <button type="button" class="btn btn-secondary" onclick="sendCommand('MANUAL')"><svg class="icon-small"><use href="#icon-manual"></use></svg>Manual Mode</button>
+                            <button type="button" class="btn btn-secondary" onclick="sendCommand('RESET')"><svg class="icon-small"><use href="#icon-reset"></use></svg>Reset</button>
+                        </div>
                     </div>
                     <div class="control-group"><label class="control-label"><svg class="icon-small"><use href="#icon-production"></use></svg>Economic Setpoint</label>
                         <div class="slider-container"><input type="range" id="economicSlider" min="10" max="100" value="30" oninput="updateEconomicSlider(this.value)"><span class="monospace" id="economicValue">30%</span></div>
@@ -511,7 +517,7 @@
                 <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-temperature"></use></svg>Stack Temperature</h3><span class="monospace">PEM Stack</span></div><div class="card-value"><span id="tempValue">42.5</span><span class="card-unit">°C</span></div><div class="progress-container"><div class="progress-label"><span>Operating Range</span><span id="tempStatus">Normal</span></div><div class="progress-bar"><div class="progress-fill" id="tempBar" style="width:42.5%"></div></div></div></div>
                 <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-safety"></use></svg>O₂ Purity</h3><span class="monospace">Medical Grade</span></div><div class="card-value"><span id="purityValue">99.7</span><span class="card-unit">%</span></div><div class="progress-container"><div class="progress-label"><span>Quality Standard</span><span id="purityStatus">≥99.5%</span></div><div class="progress-bar"><div class="progress-fill" id="purityBar" style="width:99.7%"></div></div></div></div>
                 <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-gas"></use></svg>Gas Production</h3><span class="monospace">Real-time</span></div>
-                    <div style="margin:20px 0"><div style="margin-bottom:15px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>Oxygen (O₂)</span><span class="monospace" id="oxygenValue">52.3%</span></div><div class="progress-bar"><div class="progress-fill" id="oxygenBar" style="width:52.3%"></div></div></div><div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>Hydrogen (H₂)</span><span class="monospace" id="hydrogenValue">47.7%</span></div><div class="progress-bar"><div class="progress-fill" id="hydrogenBar" style="width:47.7%"></div></div></div></div>
+                    <div style="margin:20px 0"><div style="margin-bottom:15px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>Oxygen (O₂) Rate</span><span class="monospace" id="oxygenValue">0.0%</span></div><div class="progress-bar"><div class="progress-fill" id="oxygenBar" style="width:0%"></div></div></div><div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span>Hydrogen (H₂) Rate</span><span class="monospace" id="hydrogenValue">0.0%</span></div><div class="progress-bar"><div class="progress-fill" id="hydrogenBar" style="width:0%"></div></div></div></div>
                 </div>
                 <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-reserve"></use></svg>O₂ Reserve</h3><span class="monospace">Storage Tank</span></div><div class="card-value"><span id="reserveValue">68.5</span><span class="card-unit">%</span></div><div class="progress-container"><div class="progress-label"><span>Tank Level</span><span id="reserveStatus">Adequate</span></div><div class="progress-bar"><div class="progress-fill" id="reserveBar" style="width:68.5%"></div></div></div></div>
                 <div class="card"><div class="card-title"><h3><svg class="icon"><use href="#icon-power"></use></svg>Power System</h3><span class="monospace">Energy Supply</span></div>
@@ -541,11 +547,17 @@
 
     <script>
         const MQTT_BROKER = 'wss://broker.hivemq.com:8884/mqtt';
-        const TOPICS = { ARDUINO_DATA: 'pem/arduino/data', WEB_CONTROL: 'pem/web/control' };
+        const TOPICS = {
+            ARDUINO_PRIMARY: 'arduino/sensors/primary',
+            ARDUINO_SECONDARY: 'arduino/sensors/secondary',
+            ARDUINO_STATUS: 'arduino/status',
+            WEB_CONTROL: 'pem/web/control'
+        };
         let mqttClient = null, trendChart = null, lastArduinoDataTime = 0, arduinoConnected = false;
         let dataHistory = { time: [], production: [], efficiency: [], safetyMargin: [] };
+        let latestArduinoData = {};
+        let lastUserSliderTime = 0;
 
-        // Default static values
         const DEFAULT_VALUES = {
             production: 35.0,
             efficiency: 78.5,
@@ -553,8 +565,8 @@
             water: 75.0,
             temperature: 42.5,
             purity: 99.7,
-            oxygen: 52.3,
-            hydrogen: 47.7,
+            oxygen: 0,
+            hydrogen: 0,
             reserve: 68.5,
             battery: 12.6,
             safetySetpoint: 35,
@@ -569,7 +581,6 @@
             initializeCharts();
             connectMQTT();
             updatePanelTime();
-            updateBatteryIcon(parseFloat(document.getElementById('panelBattery').textContent) || 0);
             setInterval(updatePanelTime, 1000);
             setInterval(checkArduinoConnection, 5000);
         });
@@ -583,18 +594,21 @@
 
             mqttClient.on('connect', function() {
                 updateStatus('mqtt-only', 'Connected to MQTT');
-                mqttClient.subscribe(TOPICS.ARDUINO_DATA);
-                mqttClient.subscribe('arduino/sensors');
+                mqttClient.subscribe(TOPICS.ARDUINO_PRIMARY);
+                mqttClient.subscribe(TOPICS.ARDUINO_SECONDARY);
+                mqttClient.subscribe(TOPICS.ARDUINO_STATUS);
             });
 
             mqttClient.on('message', function(topic, message) {
-                if (topic === TOPICS.ARDUINO_DATA || topic === 'arduino/sensors') {
+                if (topic === TOPICS.ARDUINO_PRIMARY ||
+                    topic === TOPICS.ARDUINO_SECONDARY ||
+                    topic === TOPICS.ARDUINO_STATUS) {
                     lastArduinoDataTime = Date.now();
                     if (!arduinoConnected) {
                         arduinoConnected = true;
                         updateStatus('connected', 'Connected to Arduino');
                     }
-                    processArduinoData(message.toString());
+                    processArduinoData(topic, message.toString());
                 }
             });
 
@@ -607,7 +621,6 @@
             if (arduinoConnected && Date.now() - lastArduinoDataTime > 10000) {
                 arduinoConnected = false;
                 updateStatus('mqtt-only', 'Connected to MQTT (Arduino offline)');
-                // Reset to default static values when Arduino disconnects
                 resetToDefaultValues();
             }
         }
@@ -625,32 +638,51 @@
             else { text.style.color = '#ef476f'; }
         }
 
-        function processArduinoData(message) {
-            try { 
+        function processArduinoData(topic, message) {
+            try {
                 const data = JSON.parse(message);
-                updateDashboard(data); 
-                updateTrendChart(data);
-                updateLastUpdate(); 
-            } catch(err) { console.error('Error:', err); }
+                latestArduinoData = Object.assign({}, latestArduinoData, data);
+                if (topic === TOPICS.ARDUINO_STATUS) {
+                    latestArduinoData.status = data.status || latestArduinoData.status;
+                    latestArduinoData.uptime_ms = data.uptime_ms || latestArduinoData.uptime_ms;
+                }
+                updateDashboard(latestArduinoData);
+                updateTrendChart(latestArduinoData);
+                updateLastUpdate();
+            } catch(err) {
+                console.error('Error parsing Arduino data:', err);
+            }
         }
 
         function updateDashboard(data) {
             if (!data) return;
-            const production = data.production ?? data.prodRateSet ?? data.prodRate ?? data.safetySetpoint ?? 0;
+            const production = (data.slider ?? data.prodRateSet ?? data.production ?? data.safetySetpoint ?? 0);
             const efficiency = data.efficiency ?? 0;
             const safetyMargin = data.safetyMargin ?? data.safety ?? 0;
-            const water = data.water ?? data.water_tank_l ?? 0;
+            const water = data.water_tank_l ?? data.water ?? 0;
             const temperature = data.temperature ?? 0;
-            const purity = data.purity ?? data.o2Purity ?? 0;
-            const oxygen = data.oxygen ?? ((data.o2ProductionRate || data.h2ProductionRate) ? (data.o2ProductionRate / ((data.o2ProductionRate || 0) + (data.h2ProductionRate || 0))) * 100 : 0);
-            const hydrogen = data.hydrogen ?? (100 - oxygen);
+            const purity = data.o2Purity ?? data.purity ?? 0;
+            const o2Rate = data.o2ProductionRate ?? 0;
+            const h2Rate = data.h2ProductionRate ?? 0;
+            const o2Percent = Math.min(100, Math.max(0, o2Rate * 100));
+            const h2Percent = Math.min(100, Math.max(0, h2Rate * 100));
             const reserve = data.reserve ?? water;
-            const batteryVoltage = data.battery ?? 0;
-            const batteryPercent = data.batteryPercent !== undefined ? data.batteryPercent : (batteryVoltage ? Math.round(((batteryVoltage - 11) / 2) * 100) : undefined);
-            const powerSource = data.powerSource ?? data.power_source ?? 'Grid';
-            const systemMode = data.systemMode ?? data.mode ?? '--';
+            const batteryVoltage = data.batteryVoltage ?? data.battery ?? 0;
+            const batteryPercent = data.batteryPercent ?? (batteryVoltage ? Math.min(100, Math.max(0, (batteryVoltage - 3.0) / (4.2 - 3.0) * 100)) : 0);
+            const powerSource = data.power_source ?? data.powerSource ?? 'Grid';
+            const systemMode = data.mode ?? data.systemMode ?? '--';
             const controllerType = data.controllerType ?? systemMode ?? '--';
             const safetySetpoint = data.safetySetpoint ?? production;
+            const gsmRssi = data.gsm ?? -1;
+
+            // Only update slider if not recently touched by user
+            if (Date.now() - lastUserSliderTime > 500) {
+                const slider = document.getElementById('productionSlider');
+                if (slider && slider.value != Math.round(production)) {
+                    slider.value = Math.round(production);
+                    document.getElementById('sliderValue').textContent = Math.round(production) + '%';
+                }
+            }
 
             updateValue('productionValue', production, '%'); updateBar('productionBar', production);
             updateValue('efficiencyValue', efficiency, '%'); updateBar('efficiencyBar', efficiency);
@@ -659,20 +691,23 @@
             updateValue('waterValue', water, '%'); updateBar('waterBar', water);
             updateValue('tempValue', temperature, '°C'); updateBar('tempBar', temperature);
             updateValue('purityValue', purity, '%'); updateBar('purityBar', purity);
-            updateValue('oxygenValue', oxygen, '%'); updateBar('oxygenBar', oxygen);
-            updateValue('hydrogenValue', hydrogen, '%'); updateBar('hydrogenBar', hydrogen);
+            updateValue('oxygenValue', o2Percent, '%'); updateBar('oxygenBar', o2Percent);
+            updateValue('hydrogenValue', h2Percent, '%'); updateBar('hydrogenBar', h2Percent);
             updateValue('reserveValue', reserve, '%'); updateBar('reserveBar', reserve);
-            if (batteryVoltage) { updateValue('batteryValue', batteryVoltage, 'V'); updateBar('batteryBar', ((batteryVoltage - 11) / 2) * 100); }
-            if (batteryPercent !== undefined) {
-                updateValue('panelBattery', batteryPercent, '%');
-                updateBatteryIcon(batteryPercent);
-            } else {
-                updateBatteryIcon(parseFloat(document.getElementById('panelBattery').textContent) || 0);
-            }
+            if (batteryVoltage) { updateValue('batteryValue', batteryVoltage, 'V'); updateBar('batteryBar', batteryPercent); }
+            updateValue('panelBattery', batteryPercent, '%');
+            updateBatteryIcon(batteryPercent);
             document.getElementById('productionTarget').textContent = `Target: ${safetySetpoint.toFixed(1)}%`;
             document.getElementById('powerSource').textContent = powerSource;
             document.getElementById('controllerStatus').textContent = controllerType;
             document.getElementById('systemMode').textContent = systemMode;
+
+            // GSM signal indicator
+            let gsmText = "No signal";
+            if (gsmRssi >= 20) gsmText = "4G";
+            else if (gsmRssi >= 10) gsmText = "3G";
+            else if (gsmRssi >= 2) gsmText = "GPRS";
+            document.getElementById('panelGsm').innerHTML = gsmText;
         }
 
         function updateValue(id, val, unit) { 
@@ -722,36 +757,24 @@
             const hue = Math.round((value * 120) / 100);
             const start = `hsl(${hue}, 85%, 55%)`;
             const end = `hsl(${hue}, 85%, 70%)`;
-            const mid = `hsl(${hue}, 85%, 60%)`;
-            return { start, end, mid };
+            return { start, end };
         }
 
         function updateTrendChart(data) {
             const now = new Date().toLocaleTimeString('en-US', { hour12: false });
-            
-            if (arduinoConnected && data) {
-                // Add real Arduino data to chart
-                dataHistory.time.push(now);
-                dataHistory.production.push(data.production || 0);
-                dataHistory.efficiency.push(data.efficiency || 0);
-                dataHistory.safetyMargin.push(data.safetyMargin || 0);
-            } else {
-                // Add static default values to chart
-                dataHistory.time.push(now);
-                dataHistory.production.push(DEFAULT_VALUES.production);
-                dataHistory.efficiency.push(DEFAULT_VALUES.efficiency);
-                dataHistory.safetyMargin.push(DEFAULT_VALUES.safetyMargin);
-            }
-            
-            // Keep only last 20 points
+            const prod = data.slider ?? data.prodRateSet ?? data.production ?? 0;
+            const eff = data.efficiency ?? 0;
+            const safety = data.safetyMargin ?? data.safety ?? 0;
+            dataHistory.time.push(now);
+            dataHistory.production.push(prod);
+            dataHistory.efficiency.push(eff);
+            dataHistory.safetyMargin.push(safety);
             if (dataHistory.time.length > 20) {
                 dataHistory.time.shift();
                 dataHistory.production.shift();
                 dataHistory.efficiency.shift();
                 dataHistory.safetyMargin.shift();
             }
-            
-            // Update chart
             if (trendChart) {
                 trendChart.data.labels = dataHistory.time;
                 trendChart.data.datasets[0].data = dataHistory.production;
@@ -763,12 +786,7 @@
 
         function updateLastUpdate() {
             if (arduinoConnected) {
-                document.getElementById('lastUpdate').textContent = 'Last update: ' + new Date().toLocaleTimeString('en-US', { 
-                    hour12: false, 
-                    hour:'2-digit', 
-                    minute:'2-digit', 
-                    second:'2-digit' 
-                });
+                document.getElementById('lastUpdate').textContent = 'Last update: ' + new Date().toLocaleTimeString('en-US', { hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' });
             }
         }
 
@@ -779,12 +797,16 @@
 
         function sendCommand(cmd) { 
             if (!arduinoConnected) alert('Arduino not connected'); 
-            else mqttClient.publish(TOPICS.WEB_CONTROL, JSON.stringify({command:cmd,timestamp:new Date().toISOString()})); 
+            else mqttClient.publish(TOPICS.WEB_CONTROL, cmd);
         }
         
         function sendProductionSetpoint() { 
             if (!arduinoConnected) alert('Arduino not connected'); 
-            else mqttClient.publish(TOPICS.WEB_CONTROL, JSON.stringify({manualProduction:parseFloat(document.getElementById('productionSlider').value)})); 
+            else {
+                const val = parseFloat(document.getElementById('productionSlider').value);
+                lastUserSliderTime = Date.now();
+                mqttClient.publish(TOPICS.WEB_CONTROL, JSON.stringify({manualProduction: val}));
+            }
         }
         
         function sendEconomicSetpoint() { 
@@ -792,7 +814,10 @@
             else mqttClient.publish(TOPICS.WEB_CONTROL, JSON.stringify({economicSetpoint:parseFloat(document.getElementById('economicSlider').value)})); 
         }
         
-        function updateProductionSlider(v) { document.getElementById('sliderValue').textContent = v + '%'; }
+        function updateProductionSlider(v) { 
+            document.getElementById('sliderValue').textContent = v + '%';
+            lastUserSliderTime = Date.now();
+        }
         function updateEconomicSlider(v) { document.getElementById('economicValue').textContent = v + '%'; }
 
         function switchTab(tab) {
@@ -804,79 +829,27 @@
         }
 
         function initializeCharts() {
-            // Initialize chart with static default values
             for (let i = 0; i < 20; i++) {
                 const time = new Date(Date.now() - (19 - i) * 3000).toLocaleTimeString('en-US', { hour12: false });
                 dataHistory.time.push(time);
-                dataHistory.production.push(DEFAULT_VALUES.production + (Math.random() * 4 - 2));
-                dataHistory.efficiency.push(DEFAULT_VALUES.efficiency + (Math.random() * 2 - 1));
-                dataHistory.safetyMargin.push(DEFAULT_VALUES.safetyMargin + (Math.random() * 3 - 1.5));
+                dataHistory.production.push(35 + (Math.random() * 4 - 2));
+                dataHistory.efficiency.push(78 + (Math.random() * 4 - 2));
+                dataHistory.safetyMargin.push(85 + (Math.random() * 4 - 2));
             }
-            
             trendChart = new Chart(document.getElementById('trendChart').getContext('2d'), {
                 type: 'line', 
                 data: { 
                     labels: dataHistory.time, 
                     datasets: [
-                        { 
-                            label: 'Production (%)', 
-                            data: dataHistory.production, 
-                            borderColor: '#00b4d8', 
-                            backgroundColor: 'rgba(0,180,216,0.1)', 
-                            borderWidth: 2, 
-                            fill: true, 
-                            tension: 0.4 
-                        },
-                        { 
-                            label: 'Efficiency (%)', 
-                            data: dataHistory.efficiency, 
-                            borderColor: '#06d6a0', 
-                            backgroundColor: 'rgba(6,214,160,0.1)', 
-                            borderWidth: 2, 
-                            fill: true, 
-                            tension: 0.4 
-                        },
-                        { 
-                            label: 'Safety Margin (%)', 
-                            data: dataHistory.safetyMargin, 
-                            borderColor: '#ef476f', 
-                            backgroundColor: 'rgba(239,71,111,0.1)', 
-                            borderWidth: 2, 
-                            fill: true, 
-                            tension: 0.4 
-                        }
+                        { label: 'Production (%)', data: dataHistory.production, borderColor: '#00b4d8', backgroundColor: 'rgba(0,180,216,0.1)', borderWidth: 2, fill: true, tension: 0.4 },
+                        { label: 'Efficiency (%)', data: dataHistory.efficiency, borderColor: '#06d6a0', backgroundColor: 'rgba(6,214,160,0.1)', borderWidth: 2, fill: true, tension: 0.4 },
+                        { label: 'Safety Margin (%)', data: dataHistory.safetyMargin, borderColor: '#ef476f', backgroundColor: 'rgba(239,71,111,0.1)', borderWidth: 2, fill: true, tension: 0.4 }
                     ]
                 }, 
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    animation: { duration: 0 }, 
-                    plugins: { 
-                        legend: { 
-                            labels: { 
-                                color: '#e0e1dd', 
-                                font: { family: 'Roboto Mono' } 
-                            } 
-                        } 
-                    }, 
-                    scales: { 
-                        x: { 
-                            grid: { color: 'rgba(255,255,255,0.1)' }, 
-                            ticks: { 
-                                color: '#e0e1dd', 
-                                font: { family: 'Roboto Mono', size: 10 } 
-                            } 
-                        }, 
-                        y: { 
-                            min: 0, 
-                            max: 100, 
-                            grid: { color: 'rgba(255,255,255,0.1)' }, 
-                            ticks: { 
-                                color: '#e0e1dd', 
-                                font: { family: 'Roboto Mono', size: 10 } 
-                            } 
-                        } 
-                    } 
+                options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, 
+                    plugins: { legend: { labels: { color: '#e0e1dd', font: { family: 'Roboto Mono' } } } }, 
+                    scales: { x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#e0e1dd', font: { family: 'Roboto Mono', size: 10 } } }, 
+                               y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#e0e1dd', font: { family: 'Roboto Mono', size: 10 } } } } 
                 }
             });
         }
